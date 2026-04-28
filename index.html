@@ -1,51 +1,103 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My Tools Panel</title>
-  <style>
-    body {
-      font-family: Arial;
-      padding: 60px;
-      background: #f4f6f9;
-      text-align: center;
-    }
-    h1 { margin-bottom: 50px; }
-    .card {
-      display: inline-block;
-      width: 280px;
-      padding: 40px;
-      margin: 30px;
-      background: white;
-      border-radius: 14px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      transition: 0.3s;
-    }
-    .card:hover {
-      transform: scale(1.05);
-    }
-    a {
-      text-decoration: none;
-      color: black;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKU Search - Sahimed</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; background: #f4f6f9; }
+        .search-container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-top: 0; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { padding: 12px 25px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        button:hover { background: #1d4ed8; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 12px; }
+        .status-msg { margin-top: 15px; font-size: 14px; color: #666; }
+        .error-msg { color: #dc2626; font-weight: bold; }
+    </style>
 </head>
 <body>
 
-<h1>My Tools Panel</h1>
+<div class="search-container">
+    <h2>🔎 Dr Codes Search</h2>
+    <div class="input-group">
+        <input type="text" id="skuInput" placeholder="Search by Product Name or SKU..." onkeyup="if(event.key === 'Enter') performSearch()">
+        <button onclick="performSearch()">Search Database</button>
+    </div>
+    <div id="status" class="status-msg"></div>
 
-<a href="https://azees4997-spec.github.io/sku-search-app/" target="_blank">
-  <div class="card">
-    🔎 <h2>SKU Search</h2>
-    <p>Search products from cloud database</p>
-  </div>
-</a>
+    <table id="resultsTable" style="display:none;">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>SKU Name</th>
+                <th>Details/Composition</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+</div>
 
-<a href="https://azees4997-spec.github.io/sku-matcher-tool/" target="_blank">
-  <div class="card">
-    🔄 <h2>SKU Matcher Tool</h2>
-    <p>Match requirement vs master SKU</p>
-  </div>
-</a>
+<script>
+    // CRITICAL: Replace these with the credentials from your new South Asia project
+    // As you migrated from US to South Asia, the URL has definitely changed.
+    const SUPABASE_URL = 'https://YOUR_SOUTH_ASIA_PROJECT_ID.supabase.co'; 
+    const SUPABASE_ANON_KEY = 'YOUR_NEW_ANON_KEY';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function performSearch() {
+        const searchTerm = document.getElementById('skuInput').value;
+        const status = document.getElementById('status');
+        const table = document.getElementById('resultsTable');
+        const tbody = document.getElementById('resultsBody');
+
+        if (!searchTerm) return;
+
+        status.innerHTML = "Connecting to South Asia region servers...";
+        status.className = "status-msg";
+        table.style.display = "none";
+        tbody.innerHTML = "";
+
+        try {
+            // Using the exact table name "Dr codes" as confirmed.
+            // Querying both 'Product Name' and 'sku_name' columns.
+            const { data, error } = await supabaseClient
+                .from('Dr codes') 
+                .select('*')
+                .or(`Product Name.ilike.%${searchTerm}%,sku_name.ilike.%${searchTerm}%`)
+                .limit(50);
+
+            if (error) throw error;
+
+            if (data.length === 0) {
+                status.innerHTML = "No matches found in Sahimed database.";
+            } else {
+                status.innerHTML = `Found ${data.length} results.`;
+                table.style.display = "table";
+                
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${row['Product Name'] || '-'}</strong></td>
+                        <td>${row['sku_name'] || '-'}</td>
+                        <td>${row['Composition'] || row['description'] || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            // This captures the ERR_NAME_NOT_RESOLVED issue if the URL is wrong.
+            status.innerHTML = "Error: Cannot resolve database address. Please check your Supabase Project URL.";
+            status.className = "status-msg error-msg";
+        }
+    }
+</script>
 
 </body>
 </html>
